@@ -1,4 +1,5 @@
 import argparse
+
 import numpy
 import pandas as pd
 import numpy as np
@@ -9,8 +10,7 @@ from statistics import mean
 import tensorflow as tf
 import random
 from keras.callbacks_v1 import TensorBoard
-import pickle
-from rl.callbacks import ModelIntervalCheckpoint, FileLogger, TrainEpisodeLogger
+from rl.callbacks import ModelIntervalCheckpoint, FileLogger
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Activation, Flatten
 from tensorflow.keras.optimizers import Adam
@@ -20,8 +20,10 @@ from rl.agents.dqn import DQNAgent
 from rl.agents.ddpg import DDPGAgent
 from rl.policy import BoltzmannQPolicy, EpsGreedyQPolicy, LinearAnnealedPolicy
 from rl.memory import SequentialMemory
+from tensorforce.environments import Environment
+from tensorforce.agents import Agent
 from TPAgentUtil import TPAgentUtil
-from PairWiseEnv import CIPairWiseEnv,CIPairWiseEnvT
+from PairWiseEnv import CIPairWiseEnv
 from ci_cycle import CICycleLog
 from Config import Config
 from TestcaseExecutionDataLoader import TestCaseExecutionDataLoader
@@ -29,6 +31,107 @@ from pathlib import Path
 from CIListWiseEnv import CIListWiseEnv
 from PointWiseEnv import CIPointWiseEnv
 import sys
+
+
+def test_agent(env: CIPairWiseEnv, model_path: str, algo, mode):
+    agent_actions = []
+
+    print("Evaluation of an agent from " + model_path)
+
+    # model = TPAgentUtil.load_model(path=model_path, algo=algo, env=env)
+    from tensorforce.environments import Environment
+    from tensorforce.agents import Agent
+    environment = Environment.create(
+        environment=env
+    )
+    model = Agent.load(directory='model-numpy', format='numpy', environment=environment)
+    if model:
+
+        if mode.upper() == "PAIRWISE" and algo.upper() != "DQN":
+            obs = env.reset()
+            states = env.reset()
+            done = 0
+            step_t = 0
+            test_rew = 0
+            while done == 0 and step_t < 300:
+                step_t += 1
+                actions = model.act(states=states)
+
+                obs, rewards, done, info = env.step(actions)
+                test_rew += rewards
+                model.observe(terminal=done, reward=rewards)
+
+                if done:
+                    break
+            return env.sorted_test_cases_vector, test_rew
+        elif mode.upper() == "PAIRWISE" and algo.upper() == "DQN":
+            obs = env.reset()
+            #
+            done = False
+            test_rew = 0
+            while True:
+                action = model.act(states=obs)
+                obs, rewards, done, info = env.step(action)
+                model.observe(terminal=done, reward=rewards)
+                test_rew += rewards
+                if done:
+                    break
+            return env.sorted_test_cases_vector, test_rew
+        elif mode.upper() == "POINTWISE":
+
+            if model:
+                test_cases = env.cycle_logs.test_cases
+                obs = env.reset()
+                done = False
+                index = 0
+                test_cases_vector_prob = []
+                test_rew = 0
+                for index in range(0, len(test_cases)):
+                    # action= model.forward(obs)
+                    action = model.act(states=obs)
+                    obs, rewards, done, info = env.step(action)
+                    test_rew += rewards
+                    model.observe(terminal=done, reward=rewards)
+                    test_cases_vector_prob.append({'index': index, 'prob': action})
+                    if done:
+                        assert len(test_cases) == index + 1, "Evaluation is finished without iterating all " \
+                                                             "test cases "
+                        break
+                test_cases_vector_prob = sorted(test_cases_vector_prob, key=lambda x: x['prob'],
+                                                reverse=False)  ## the lower the rank, te higher the priority
+                sorted_test_cases = []
+                for test_case in test_cases_vector_prob:
+                    sorted_test_cases.append(test_cases[test_case['index']])
+            return sorted_test_cases, test_rew
+            pass
+        elif mode.upper() == "LISTWISE":
+            if model:
+                test_cases = env.cycle_logs.test_cases
+                obs = env.reset()
+                done = False
+            i = 0
+            test_rew = 0
+            while True and i < 1000000:
+                i = i + 1
+                action = model.act(states=obs)
+                if agent_actions.count(action) == 0 and action < len(test_cases):
+                    if isinstance(action, list) or isinstance(action, np.ndarray):
+                        agent_actions.append(action[0])
+                    else:
+                        agent_actions.append(action)
+
+                obs, rewards, done, info = env.step(action)
+                model.observe(terminal=done, reward=rewards)
+                test_rew += rewards
+                if done:
+                    break
+            sorted_test_cases = []
+
+            for index in agent_actions:
+                sorted_test_cases.append(test_cases[index])
+            if (i >= 1000000):
+                sorted_test_cases = test_cases
+            return sorted_test_cases, test_rew
 
 
 def millis_interval(start, end):
@@ -48,92 +151,12 @@ def get_max_test_cases_count(cycle_logs:[]):
             max_test_cases_count = cycle_log.get_test_cases_count()
     return max_test_cases_count
 
-def test_agent(env: CIPairWiseEnv, model_path: str, algo, mode,agent):
-        agent_actions = []
-
-        print("Evaluation of an agent from " + model_path)
-        agent.load_weights(f'{model_path}.h5f')
-        model = agent
-        if model:
-
-            if mode.upper() == "PAIRWISE" and algo.upper() == "DQN":
-                #env = model.get_env()
-                obs = env.reset()
-                done = False
-                test_rew=0
-                while True:
-                #
-                    #obs=obs.reshape((1,)+env.observation_space.shape)
-                    #obs=obs[: ,None]
-                    action = np.argmax(model.forward(obs))
-
-                    obs, rewards, done, info = env.step(action)
-                    test_rew+=rewards
-                    if done:
-                         break
-                return env.sorted_test_cases_vector,test_rew
-            elif mode.upper() == "POINTWISE":
-
-                if model:
-                    test_cases = env.cycle_logs.test_cases
-                    #if algo.upper() != "dqn":
-                       # env = DummyVecEnv([lambda: env])
-                    #model.set_env(env)
-                    obs = env.reset()
-                    done = False
-                    index = 0
-                    test_cases_vector_prob = []
-                    test_rew = 0
-                    for index in range(0, len(test_cases)):
-                        action= model.forward(obs)
-                        obs, rewards, done, info = env.step(action)
-                        test_rew += rewards
-                        test_cases_vector_prob.append({'index': index, 'prob': action})
-                        if done:
-                            assert len(test_cases) == index + 1, "Evaluation is finished without iterating all " \
-                                                                 "test cases "
-                            break
-                    test_cases_vector_prob = sorted(test_cases_vector_prob, key=lambda x: x['prob'],
-                                                    reverse=False) ## the lower the rank, te higher the priority
-                    sorted_test_cases = []
-                    for test_case in test_cases_vector_prob:
-                        sorted_test_cases.append(test_cases[test_case['index']])
-                return sorted_test_cases,test_rew
-                pass
-            elif mode.upper() == "LISTWISE":
-                if model:
-                    test_cases = env.cycle_logs.test_cases
-                    obs = env.reset()
-                    done = False
-                i=0
-                test_rew =0
-                while True and i<1000000:
-                    i=i+1
-                    action = np.argmax(model.forward(obs))
-                    print(action)
-                    if agent_actions.count(action) == 0 and action < len(test_cases):
-                        if isinstance(action, list) or isinstance(action, np.ndarray):
-                            agent_actions.append(action[0])
-                        else:
-                            agent_actions.append(action)
-                        # print(len(agent_actions))
-
-                    obs, rewards, done, info = env.step(action)
-
-                    test_rew += rewards
-                    if done:
-                        break
-                sorted_test_cases = []
-                for index in agent_actions:
-                    sorted_test_cases.append(test_cases[index])
-                if ( i>= 1000000):
-                    sorted_test_cases = test_cases
-                return  sorted_test_cases,test_rew
 
 def experiment(mode, algo, test_case_data, start_cycle, end_cycle, episodes, model_path, dataset_name, conf,verbos=False):
     log_dir = os.path.dirname(conf.log_file)
 #    -- fix end cycle issue
     total_steps = 0
+
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
     if start_cycle <= 0:
@@ -144,7 +167,7 @@ def experiment(mode, algo, test_case_data, start_cycle, end_cycle, episodes, mod
     ## check for max cycle and end_cycle and set end_cycle to max if it is larger than max
     log_file = open(conf.log_file, "a")
     log_file_test_cases = open(log_dir+"/sorted_test_case.csv", "a")
-    log_file.write("timestamp,mode,algo,model_name,episodes,steps,cycle_id,training_time,testing_time,winsize,test_cases,failed_test_cases, apfd, nrpa, random_apfd, optimal_apfd, accumulated_reward_test, accumulated_reward_train," + os.linesep)
+    log_file.write("timestamp,mode,algo,model_name,episodes,steps,cycle_id,training_time,testing_time,winsize,test_cases,failed_test_cases, apfd, nrpa, random_apfd, optimal_apfd,accumulated_reward_test,accumulated_reward_train" + os.linesep)
     first_round: bool = True
     if start_cycle > 0:
         first_round = False
@@ -163,7 +186,7 @@ def experiment(mode, algo, test_case_data, start_cycle, end_cycle, episodes, mod
             steps = int(episodes * (N * (math.log(N,2)+1)))
 
             env = CIPairWiseEnv(test_case_data[i], conf)
-            envT= CIPairWiseEnvT(test_case_data[i], conf)
+
         elif mode.upper() == 'POINTWISE':
             N = test_case_data[i].get_test_cases_count()
             steps = int(episodes * (N * (math.log(N,2)+1)))
@@ -173,99 +196,128 @@ def experiment(mode, algo, test_case_data, start_cycle, end_cycle, episodes, mod
             N = test_case_data[i].get_test_cases_count()
             steps = int(episodes * (N * (math.log(N,2)+1)))
             env = CIListWiseEnv(test_case_data[i], conf)
+        elif mode.upper() == 'LISTWISE2':
+            conf.max_test_cases_count = get_max_test_cases_count(test_case_data)
+            N = test_case_data[i].get_test_cases_count()
+            steps = int(episodes * (N * (math.log(N,2)+1)))
         print("Training agent with replaying of cycle " + str(i) + " with steps " + str(steps))
         total_steps+=steps
 
         print("millions steps, millions steps",total_steps)
         if model_save_path:
             previous_model_path = model_save_path
-        #model_save_path = model_path + "/" + mode + "_" + algo + dataset_name + "_" + str(
-         #   start_cycle) + "_" + str(i)
-        model_save_path = mode + "_" + algo + dataset_name + "_" + str(
+        model_save_path = model_path + "/" + mode + "_" + algo + dataset_name + "_" + str(
             start_cycle) + "_" + str(i)
 
 
-        if first_round:
 
-            memory = SequentialMemory(limit=10000, window_length=1)
-            training_start_time = datetime.now()
-            if algo.upper()=='DQN':
-                model = Sequential()
-                model.add(Flatten(input_shape=((1,) + env.observation_space.shape)))
-                model.add(Dense(64, activation="relu"))
-                model.add(Dense(64, activation="relu"))
-                nb_actions = env.action_space.n
-                model.add(Dense(nb_actions))
-                model.add(Activation('linear'))
-                model.compile(
-                    loss="categorical_crossentropy",
-                    optimizer="adam",
-                    metrics=["accuracy"])
-                policy = LinearAnnealedPolicy(EpsGreedyQPolicy(), attr='eps', value_max=1., value_test=.05,value_min=0.02, nb_steps=steps)
-                tp_agen = DQNAgent(model=model, nb_actions=nb_actions, memory=memory,batch_size=64,
-                                 enable_double_dqn=False, policy=policy)
+        import torch as th
+
+
+        if first_round:
+            environment = Environment.create(
+                environment=env
+            )
+            if algo.upper() == 'A2C':
+                agent = Agent.create(
+                    agent='a2c', environment=environment, network=[
+                        dict(type='flatten'),
+                        dict(type='dense', size=64, activation='relu'),
+                        dict(type='dense', size=64, activation='relu'),
+                        dict(type='linear', size=2),
+                    ],
+                    discount=0.90, memory=10000, learning_rate=0.0001, batch_size=64
+                )
 
             if algo.upper() == 'DDPG':
-                nb_actions = env.action_space.shape[0]
-                actor = Sequential()
-                actor.add(Flatten(input_shape=(1,) + env.observation_space.shape))
+                agent = Agent.create(
+                    agent='ddpg', environment=environment, network=[
+                        dict(type='flatten'),
+                        dict(type='dense', size=64, activation='relu'),
+                        dict(type='dense', size=64, activation='relu'),
+                        dict(type='linear', size=2),
+                    ],
+                    discount=0.90, memory=10000, learning_rate=0.0001, batch_size=64
+                )
+            if algo.upper() == 'DQN':
+                agent = Agent.create(
+                    agent='dqn', environment=environment, network=[
+                        dict(type='flatten'),
+                        dict(type='dense', size=64, activation='relu'),
+                        dict(type='dense', size=64, activation='relu'),
+                        dict(type='linear', size=2),
+                    ],
+                    discount=0.90, memory=10000, learning_rate=0.0001, batch_size=64
+                )
 
-                actor.add(Input(shape=env.observation_space.shape))
-                actor.add(Dense(64))
-                actor.add(Activation('relu'))
-                actor.add(Dense(64))
-                actor.add(Activation('relu'))
-                actor.add(Dense(nb_actions))
-                actor.add(Activation('sigmoid'))
+            training_start_time = datetime.now()
+            j=0
+            k=0
+            train_rew=0
+            while j<steps:
+                states = environment.reset()
+                terminal = 0
+                step = 0
+                k=0
+                while terminal == 0 and j<steps:
 
-                action_input = Input(shape=(nb_actions,), name='action_input')
-                observation_input =  Input(shape=(1,) + env.observation_space.shape, name='observation_input')
-                flattened_observation = Flatten()(observation_input)
-                x = Concatenate()([action_input, flattened_observation])
-                x = Dense(64)(x)
-                x = Activation('relu')(x)
-                x = Dense(64)(x)
-                x = Activation('relu')(x)
-                x = Dense(1)(x)
-                x = Activation('linear')(x)
-                critic = Model(inputs=[action_input, observation_input], outputs=x)
-                tp_agen = DDPGAgent(nb_actions=nb_actions,  memory=memory,gamma=0.99,  actor=actor, critic=critic,
-                             critic_action_input=action_input,nb_steps_warmup_critic=100, nb_steps_warmup_actor=100)
+                    actions = agent.act(states=states)
 
-            tp_agen.compile(Adam(lr=1e-4), metrics=['mae']
-                            )
-            tp_agen.fit(env, nb_steps=steps, visualize=False, verbose=2)
-            tp_agen.save_weights(f'{model_save_path}.h5f', overwrite=True)
+                    states, terminal, reward = environment.execute(actions=actions)
+                    train_rew += reward
+                    agent.observe(terminal=terminal, reward=reward)
+                    j=j+1
+                    k=k+1
+                   #agent.save(directory=model_save_path)
+                    agent.save(directory='model-numpy', format='numpy', append='episodes')
             training_end_time = datetime.now()
             first_round = False
         else:
-            #tp_agent = TPAgentUtil.load_model(algo=algo, env=env, path=previous_model_path)
-            tp_agen.load_weights(f'{previous_model_path}.h5f')
+            environment = Environment.create(
+                environment=env
+            )
+            #agent=Agent.load(directory=previous_model_path)
+            agent=Agent.load(directory='model-numpy', format='numpy', environment=environment)
+            j=0
+            k=0
+            train_rew=0
             training_start_time = datetime.now()
-            tp_agen.fit(env, nb_steps=steps, visualize=False,verbose=2)
-            tp_agen.save_weights(f'{model_save_path}.h5f', overwrite=True)
+            while j<steps:
+                states = environment.reset()
+                terminal = 0
+                # if step == 128:
+                #    break
+                step = 0
+                k=0
+                while terminal == 0 and j<steps:
+                    actions = agent.act(states=states)
+                    states, terminal, reward = environment.execute(actions=actions)
+                    train_rew+=reward
+                    agent.observe(terminal=terminal, reward=reward)
+                    j=j+1
+                    k=k+1
+                    agent.save(directory='model-numpy', format='numpy', append='episodes')
             training_end_time = datetime.now()
-
         print("Training agent with replaying of cycle " + str(i) + " is finished")
 
         j = i+1 ## test trained agent on next cycles
         while (((test_case_data[j].get_test_cases_count() < 6)
                or ((conf.dataset_type == "simple") and (test_case_data[j].get_failed_test_cases_count() == 0) ))
                and (j < end_cycle)):
+            #or test_case_data[j].get_failed_test_cases_count() == 0) \
             j = j+1
         if j >= end_cycle-1:
             break
         if mode.upper() == 'PAIRWISE':
-            env_test = CIPairWiseEnvT(test_case_data[j], conf)
+            env_test = CIPairWiseEnv(test_case_data[j], conf)
         elif mode.upper() == 'POINTWISE':
             env_test = CIPointWiseEnv(test_case_data[j], conf)
         elif mode.upper() == 'LISTWISE':
             env_test = CIListWiseEnv(test_case_data[j], conf)
 
-
         test_time_start = datetime.now()
-        test_case_vector,test_rewards = test_agent(env=env_test, algo=algo, model_path=model_save_path,
-                                                  mode=mode,agent=tp_agen)
+        test_case_vector,test_rewards = TPAgentUtil.test_agent(env=env_test, algo=algo, model_path=model_save_path,
+                                                  mode=mode)
         test_time_end = datetime.now()
         test_case_id_vector = []
 
@@ -298,7 +350,7 @@ def experiment(mode, algo, test_case_data, start_cycle, end_cycle, episodes, mod
                        "," + str(test_time) + "," + str(conf.win_size) + "," +
                        str(test_case_data[j].get_test_cases_count()) + "," +
                        str(test_case_data[j].get_failed_test_cases_count()) + "," + str(apfd) + "," +
-                       str(nrpa) + "," + str(apfd_random) + "," + str(apfd_optimal) + "," +str(test_rewards)+ "," +"," +os.linesep)
+                       str(nrpa) + "," + str(apfd_random) + "," + str(apfd_optimal) +"," + str(test_rewards)+"," + str(train_rew)+"," + os.linesep)
         log_file_test_cases.write(datetime.now().strftime("%d/%m/%Y %H:%M:%S") + "," + mode + "," + algo + ","
                        + Path(model_save_path).stem + "," +
                        str(episodes) + "," + str(steps) + "," + str(cycle_id_text) + "," + str(training_time) +
@@ -336,12 +388,12 @@ if __name__ == '__main__':
     print("Recursion limit:" + str(old_limit))
     sys.setrecursionlimit(1000000)
     # parser.add_argument('--traningData',help='tranind data folder',required=False)
-    parser.add_argument('-m', '--mode', help='[pairwise,pointwise,listwise] ', required=False)
-    parser.add_argument('-a', '--algo', help='[a2c,dqn,..]', required=False)
+    parser.add_argument('-m', '--mode', help='[pairwise,pointwise,listwise] ', required=False)#non
+    parser.add_argument('-a', '--algo', help='[a2c,dqn,..]', required=False)#non
     parser.add_argument('-d', '--dataset_type', help='simple, enriched', required=False, default="simple")
-    parser.add_argument('-e', '--episodes', help='Training episodes ', required=False)
+    parser.add_argument('-e', '--episodes', help='Training episodes ', required=False)#non
     parser.add_argument('-w', '--win_size', help='Windows size of the history', required=False)
-    parser.add_argument('-t', '--train_data', help='Train set folder', required=False)
+    parser.add_argument('-t', '--train_data', help='Train set folder', required=False)#non
     parser.add_argument('-f', '--first_cycle', help='first cycle used for training', required=False)
     parser.add_argument('-c', '--cycle_count', help='Number of cycle used for training', required=False)
     parser.add_argument('-l', '--list_size', help='Maximum number of test case per cycle', required=False)
@@ -350,10 +402,11 @@ if __name__ == '__main__':
 
     # parser.add_argument('-f','--flags',help='Input csv file containing testing result',required=False)
     supported_formalization = ['PAIRWISE', 'POINTWISE', 'LISTWISE']
-    supported_algo = ['DQN', "DDPG"]
+    supported_algo = ['DQN', "A2C", "DDPG"]
     args = parser.parse_args()
     args.mode='pointwise'
     args.algo='ddpg'
+    #args.output_path='C:/Users/phili/Documents/Paulina Old/tp_rl-master_kerass/tp_rl-master_keras/tp_rl/testCase_prioritization/model'iofrol-additional-featurespaintcontrol-additional-features
     args.dataset_type="enriched"
     args.episodes='200'
     args.train_data='C:/Users/phili/myrep_rl/drl_se/Test_case_prioritization_problem/data/Commons_math.csv'
@@ -388,18 +441,9 @@ if __name__ == '__main__':
 test_data_loader = TestCaseExecutionDataLoader(conf.train_data, args.dataset_type)
 test_data = test_data_loader.load_data()
 ci_cycle_logs = test_data_loader.pre_process()
-### open data
-
-
-
 reportDatasetInfo(test_case_data=ci_cycle_logs)
-from tensorflow.python.framework.ops import disable_eager_execution
-tf.compat.v1.disable_eager_execution()
-
-#training using n cycle staring from start cycle
 conf.dataset_type = args.dataset_type
 
 experiment(mode=args.mode, algo=args.algo.upper(), test_case_data=ci_cycle_logs, episodes=int(args.episodes),
            start_cycle=conf.first_cycle, verbos=False,
            end_cycle=conf.first_cycle + conf.cycle_count - 1, model_path=conf.output_path, dataset_name="", conf=conf)
-# .. lets test this tommorow by passing args
