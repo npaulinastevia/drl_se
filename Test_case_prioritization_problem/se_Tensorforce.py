@@ -22,7 +22,6 @@ from rl.policy import BoltzmannQPolicy, EpsGreedyQPolicy, LinearAnnealedPolicy
 from rl.memory import SequentialMemory
 from tensorforce.environments import Environment
 from tensorforce.agents import Agent
-from TPAgentUtil import TPAgentUtil
 from PairWiseEnv import CIPairWiseEnv
 from ci_cycle import CICycleLog
 from Config import Config
@@ -316,7 +315,7 @@ def experiment(mode, algo, test_case_data, start_cycle, end_cycle, episodes, mod
             env_test = CIListWiseEnv(test_case_data[j], conf)
 
         test_time_start = datetime.now()
-        test_case_vector,test_rewards = TPAgentUtil.test_agent(env=env_test, algo=algo, model_path=model_save_path,
+        test_case_vector,test_rewards = test_agent(env=env_test, algo=algo, model_path=model_save_path,
                                                   mode=mode)
         test_time_end = datetime.now()
         test_case_id_vector = []
