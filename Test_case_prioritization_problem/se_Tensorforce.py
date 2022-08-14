@@ -195,10 +195,6 @@ def experiment(mode, algo, test_case_data, start_cycle, end_cycle, episodes, mod
             N = test_case_data[i].get_test_cases_count()
             steps = int(episodes * (N * (math.log(N,2)+1)))
             env = CIListWiseEnv(test_case_data[i], conf)
-        elif mode.upper() == 'LISTWISE2':
-            conf.max_test_cases_count = get_max_test_cases_count(test_case_data)
-            N = test_case_data[i].get_test_cases_count()
-            steps = int(episodes * (N * (math.log(N,2)+1)))
         print("Training agent with replaying of cycle " + str(i) + " with steps " + str(steps))
         total_steps+=steps
 
@@ -218,26 +214,56 @@ def experiment(mode, algo, test_case_data, start_cycle, end_cycle, episodes, mod
                 environment=env
             )
             if algo.upper() == 'A2C':
-                agent = Agent.create(
-                    agent='a2c', environment=environment, network=[
-                        dict(type='flatten'),
-                        dict(type='dense', size=64, activation='relu'),
-                        dict(type='dense', size=64, activation='relu'),
-                        dict(type='linear', size=2),
-                    ],
-                    discount=0.90, memory=10000, learning_rate=0.0001, batch_size=64
-                )
-
+                if mode.upper() == 'LISTWISE':
+                    agent = Agent.create(
+                        agent='a2c', environment=environment, network=[
+                            dict(type='flatten'),
+                            dict(type='dense', size=64, activation='relu'),
+                            dict(type='dense', size=64, activation='relu'),
+                            dict(type='linear', size=400),
+                        ],
+                        discount=0.99, memory=10000, learning_rate=0.0007, batch_size=32
+                    )
+                elif mode.upper() == 'POINTWISE':
+                    agent = Agent.create(
+                        agent='a2c', environment=environment, network=[
+                            dict(type='flatten'),
+                            dict(type='dense', size=64, activation='relu'),
+                            dict(type='dense', size=64, activation='relu'),
+                            dict(type='linear', size=1),
+                        ],
+                        discount=0.99, memory=10000, learning_rate=0.0007, batch_size=32
+                    )
+                else:
+                    agent = Agent.create(
+                        agent='a2c', environment=environment, network=[
+                            dict(type='flatten'),
+                            dict(type='dense', size=64, activation='relu'),
+                            dict(type='dense', size=64, activation='relu'),
+                            dict(type='linear', size=2),
+                        ],
+                        discount=0.99, memory=10000, learning_rate=0.0007, batch_size=32
+                    )
             if algo.upper() == 'DDPG':
                 agent = Agent.create(
                     agent='ddpg', environment=environment, network=[
                         dict(type='flatten'),
                         dict(type='dense', size=64, activation='relu'),
                         dict(type='dense', size=64, activation='relu'),
-                        dict(type='linear', size=2),
+                        dict(type='linear', size=1),
                     ],
-                    discount=0.90, memory=10000, learning_rate=0.0001, batch_size=64
+                    discount=0.99, memory=10000, learning_rate=0.0005, batch_size=32
                 )
+                if mode.upper() == 'LISTWISE':
+                    agent = Agent.create(
+                        agent='a2c', environment=environment, network=[
+                            dict(type='flatten'),
+                            dict(type='dense', size=64, activation='relu'),
+                            dict(type='dense', size=64, activation='relu'),
+                            dict(type='linear', size=400),
+                        ],
+                        discount=0.99, memory=10000, learning_rate=0.0007, batch_size=32
+                    )
             if algo.upper() == 'DQN':
                 agent = Agent.create(
                     agent='dqn', environment=environment, network=[
@@ -246,19 +272,19 @@ def experiment(mode, algo, test_case_data, start_cycle, end_cycle, episodes, mod
                         dict(type='dense', size=64, activation='relu'),
                         dict(type='linear', size=2),
                     ],
-                    discount=0.90, memory=10000, learning_rate=0.0001, batch_size=64
+                    discount=0.99, memory=10000, learning_rate=0.0005, batch_size=32
                 )
 
             training_start_time = datetime.now()
             j=0
             k=0
             train_rew=0
-            while j<steps:
+            while j<10:
                 states = environment.reset()
                 terminal = 0
                 step = 0
                 k=0
-                while terminal == 0 and j<steps:
+                while terminal == 0 and j<10:
 
                     actions = agent.act(states=states)
 
@@ -281,14 +307,14 @@ def experiment(mode, algo, test_case_data, start_cycle, end_cycle, episodes, mod
             k=0
             train_rew=0
             training_start_time = datetime.now()
-            while j<steps:
+            while j<10:
                 states = environment.reset()
                 terminal = 0
                 # if step == 128:
                 #    break
                 step = 0
                 k=0
-                while terminal == 0 and j<steps:
+                while terminal == 0 and j<10:
                     actions = agent.act(states=states)
                     states, terminal, reward = environment.execute(actions=actions)
                     train_rew+=reward
@@ -403,8 +429,8 @@ if __name__ == '__main__':
     supported_formalization = ['PAIRWISE', 'POINTWISE', 'LISTWISE']
     supported_algo = ['DQN', "A2C", "DDPG"]
     args = parser.parse_args()
-    args.mode='pointwise'
-    args.algo='ddpg'
+    args.mode='listwise'
+    args.algo='a2c'
     #args.output_path='C:/Users/phili/Documents/Paulina Old/tp_rl-master_kerass/tp_rl-master_keras/tp_rl/testCase_prioritization/model'iofrol-additional-featurespaintcontrol-additional-features
     args.dataset_type="enriched"
     args.episodes='200'

@@ -232,7 +232,7 @@ def experiment(mode, algo, test_case_data, start_cycle, end_cycle, episodes, mod
                 tp_agen = DDPGAgent(nb_actions=nb_actions,  memory=memory,gamma=0.99,  actor=actor, critic=critic,
                              critic_action_input=action_input,nb_steps_warmup_critic=100, nb_steps_warmup_actor=100)
 
-            tp_agen.compile(Adam(lr=1e-4), metrics=['mae']
+            tp_agen.compile(Adam(lr=5e-4), metrics=['mae']
                             )
             tp_agen.fit(env, nb_steps=steps, visualize=False, verbose=2)
             tp_agen.save_weights(f'{model_save_path}.h5f', overwrite=True)
