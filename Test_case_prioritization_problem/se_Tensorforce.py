@@ -8,18 +8,6 @@ import os
 from datetime import datetime
 from statistics import mean
 import tensorflow as tf
-import random
-from keras.callbacks_v1 import TensorBoard
-from rl.callbacks import ModelIntervalCheckpoint, FileLogger
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, Activation, Flatten
-from tensorflow.keras.optimizers import Adam
-from keras.models import Sequential, Model
-from keras.layers import Dense, Activation, Flatten, Input, Concatenate,InputLayer
-from rl.agents.dqn import DQNAgent
-from rl.agents.ddpg import DDPGAgent
-from rl.policy import BoltzmannQPolicy, EpsGreedyQPolicy, LinearAnnealedPolicy
-from rl.memory import SequentialMemory
 from tensorforce.environments import Environment
 from tensorforce.agents import Agent
 from PairWiseEnv import CIPairWiseEnv
@@ -279,12 +267,12 @@ def experiment(mode, algo, test_case_data, start_cycle, end_cycle, episodes, mod
             j=0
             k=0
             train_rew=0
-            while j<10:
+            while j<steps:
                 states = environment.reset()
                 terminal = 0
                 step = 0
                 k=0
-                while terminal == 0 and j<10:
+                while terminal == 0 and j<steps:
 
                     actions = agent.act(states=states)
 
@@ -293,7 +281,6 @@ def experiment(mode, algo, test_case_data, start_cycle, end_cycle, episodes, mod
                     agent.observe(terminal=terminal, reward=reward)
                     j=j+1
                     k=k+1
-                   #agent.save(directory=model_save_path)
                     agent.save(directory='model-numpy', format='numpy', append='episodes')
             training_end_time = datetime.now()
             first_round = False
@@ -307,14 +294,14 @@ def experiment(mode, algo, test_case_data, start_cycle, end_cycle, episodes, mod
             k=0
             train_rew=0
             training_start_time = datetime.now()
-            while j<10:
+            while j<steps:
                 states = environment.reset()
                 terminal = 0
                 # if step == 128:
                 #    break
                 step = 0
                 k=0
-                while terminal == 0 and j<10:
+                while terminal == 0 and j<steps:
                     actions = agent.act(states=states)
                     states, terminal, reward = environment.execute(actions=actions)
                     train_rew+=reward

@@ -20,7 +20,6 @@ from rl.agents.dqn import DQNAgent
 from rl.agents.ddpg import DDPGAgent
 from rl.policy import BoltzmannQPolicy, EpsGreedyQPolicy, LinearAnnealedPolicy
 from rl.memory import SequentialMemory
-from TPAgentUtil import TPAgentUtil
 from PairWiseEnv import CIPairWiseEnv,CIPairWiseEnvT
 from ci_cycle import CICycleLog
 from Config import Config
@@ -163,7 +162,6 @@ def experiment(mode, algo, test_case_data, start_cycle, end_cycle, episodes, mod
             steps = int(episodes * (N * (math.log(N,2)+1)))
 
             env = CIPairWiseEnv(test_case_data[i], conf)
-            envT= CIPairWiseEnvT(test_case_data[i], conf)
         elif mode.upper() == 'POINTWISE':
             N = test_case_data[i].get_test_cases_count()
             steps = int(episodes * (N * (math.log(N,2)+1)))
@@ -352,8 +350,8 @@ if __name__ == '__main__':
     supported_formalization = ['PAIRWISE', 'POINTWISE', 'LISTWISE']
     supported_algo = ['DQN', "DDPG"]
     args = parser.parse_args()
-    args.mode='pointwise'
-    args.algo='ddpg'
+    args.mode='listwise'
+    args.algo='dqn'
     args.dataset_type="enriched"
     args.episodes='200'
     args.train_data='C:/Users/phili/myrep_rl/drl_se/Test_case_prioritization_problem/data/Commons_math.csv'
