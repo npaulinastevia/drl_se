@@ -352,9 +352,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
     args.mode='listwise'
     args.algo='dqn'
-    args.dataset_type="enriched"
+    args.dataset_type="simple"
     args.episodes='200'
-    args.train_data='C:/Users/phili/myrep_rl/drl_se/Test_case_prioritization_problem/data/Commons_math.csv'
+    args.train_data='C:/Users/phili/myrep_rl/drl_se/Test_case_prioritization_problem/data/paintcontrol-additional-features.csv'
     assert supported_formalization.count(args.mode.upper()) == 1, "The formalization mode is not set correctly"
     assert supported_algo.count(args.algo.upper()) == 1, "The formalization mode is not set correctly"
 
