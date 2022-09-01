@@ -163,7 +163,8 @@ def experiment(mode, algo, test_case_data, start_cycle, end_cycle, episodes, mod
     model_save_path = None
     apfds=[]
     nrpas=[]
-    for i in range(start_cycle, end_cycle - 1):
+    #for i in range(start_cycle, end_cycle - 1):
+    for i in range(125, end_cycle - 1):
         if (test_case_data[i].get_test_cases_count() < 6) or \
                 ( (conf.dataset_type == "simple") and
                   (test_case_data[i].get_failed_test_cases_count() < 1)):
@@ -267,12 +268,12 @@ def experiment(mode, algo, test_case_data, start_cycle, end_cycle, episodes, mod
             j=0
             k=0
             train_rew=0
-            while j<steps:
+            while j<10:
                 states = environment.reset()
                 terminal = 0
                 step = 0
                 k=0
-                while terminal == 0 and j<steps:
+                while terminal == 0 and j<10:
 
                     actions = agent.act(states=states)
 
@@ -294,14 +295,14 @@ def experiment(mode, algo, test_case_data, start_cycle, end_cycle, episodes, mod
             k=0
             train_rew=0
             training_start_time = datetime.now()
-            while j<steps:
+            while j<10:
                 states = environment.reset()
                 terminal = 0
                 # if step == 128:
                 #    break
                 step = 0
                 k=0
-                while terminal == 0 and j<steps:
+                while terminal == 0 and j<10:
                     actions = agent.act(states=states)
                     states, terminal, reward = environment.execute(actions=actions)
                     train_rew+=reward
@@ -416,12 +417,12 @@ if __name__ == '__main__':
     supported_formalization = ['PAIRWISE', 'POINTWISE', 'LISTWISE']
     supported_algo = ['DQN', "A2C", "DDPG"]
     args = parser.parse_args()
-    args.mode='listwise'
-    args.algo='a2c'
+    args.mode='pairwise'
+    args.algo='dqn'
     #args.output_path='C:/Users/phili/Documents/Paulina Old/tp_rl-master_kerass/tp_rl-master_keras/tp_rl/testCase_prioritization/model'iofrol-additional-featurespaintcontrol-additional-features
     args.dataset_type="enriched"
     args.episodes='200'
-    args.train_data='C:/Users/phili/myrep_rl/drl_se/Test_case_prioritization_problem/data/Commons_math.csv'
+    args.train_data='C:/Users/phili/myrep_rl/drl_se/Test_case_prioritization_problem/data/Commons_imaging.csv'
     assert supported_formalization.count(args.mode.upper()) == 1, "The formalization mode is not set correctly"
     assert supported_algo.count(args.algo.upper()) == 1, "The formalization mode is not set correctly"
 

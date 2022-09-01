@@ -276,9 +276,10 @@ def sb_learn(algo='dqn'):
                 if info['current'] not in visited_state:
                     visited_state.append(info['current'])
                 reward_sum+=rewards
-                writer.add_scalar('PPO_SB_reward_1/step', rewards, n_iter)
-                writer.add_scalar('PPO_SB_average_reward_1/steps', reward_sum/n_iter, n_iter)
-                writer.add_scalar('PPO_SB_cum_reward_1/steps', reward_sum, n_iter)
+                writer.add_scalar('agent_SB_reward_1/step', rewards, n_iter)
+                writer.add_scalar('agent_SB_average_reward_1/steps', reward_sum/n_iter, n_iter)
+                writer.add_scalar('agent_SB_cum_reward_1/steps', reward_sum, n_iter)
+                print(numberOfbugs)
                 if info['bug']:
                     if info['bug'] not in buglist:
                         numberOfbugs+=1
@@ -311,7 +312,7 @@ def sb_learn(algo='dqn'):
                     obs = env.reset()
 
 if __name__ == '__main__':
-    algo='dqn'
+    algo='a2c'
     sb_learn(algo)
 
 

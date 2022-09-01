@@ -183,6 +183,7 @@ def kr_learn(algo='dqn'):
             model.add(Dense(128, activation="relu"))
             model.add(Dense(nb_actions))
             model.add(Activation('linear'))
+
             dqn = DQNAgent(model=model, nb_actions=nb_actions, policy=policy,
                        memory=memory,
                        gamma=.99, batch_size=128)
@@ -196,7 +197,7 @@ def kr_learn(algo='dqn'):
             episode_num = 0
             buglist = []
             numberOfbugs = 0
-            path = 'D:\drl_wuji\DQNKR' + str(i+1)
+            path = r'C:\Users\phili\Documents\Paulina Old\drl_wuji\DQN_SB_countVisitedstate' + str(i+1)
             os.makedirs(path,exist_ok=True)
             writer = SummaryWriter(path)
             reward_sum=0
@@ -223,6 +224,7 @@ def kr_learn(algo='dqn'):
                 writer.add_scalar('agent_KR_reward_1/step', rewards, n_iter)
                 writer.add_scalar('agent_KR_average_reward_1/steps', reward_sum/n_iter, n_iter)
                 writer.add_scalar('agent_KR_cum_reward_1/steps', reward_sum, n_iter)
+                print(numberOfbugs)
                 if info['bug']:
                     if info['bug'] not in buglist:
                         numberOfbugs+=1
@@ -255,7 +257,7 @@ def kr_learn(algo='dqn'):
 if __name__ == '__main__':
     from tensorflow.python.framework.ops import disable_eager_execution
     tensorflow.compat.v1.disable_eager_execution()
-    algo='ddpg'
+    algo='dqn'
     kr_learn(algo)
 
 

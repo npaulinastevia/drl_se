@@ -193,7 +193,7 @@ if __name__ == '__main__':
     LENGTH = 40
     env = Env()
     lr = 0.00025
-    algo = 'dqn'
+    algo = 'ppo'
     from tensorforce.environments import Environment
     from tensorforce.agents import Agent
     from tensorboardX import SummaryWriter
@@ -242,8 +242,6 @@ if __name__ == '__main__':
               terminal = 0
               if step == 10000:
                   break
-
-              step=0
               while terminal==0:
 
                   if step == 10000:
@@ -258,7 +256,7 @@ if __name__ == '__main__':
 
           numberOfbugs=0
           obs = environment.reset()
-          path='D:\drl_wuji\agent_TF' + str(i + 1)
+          path= r'C:\Users\phili\Documents\Paulina Old\drl_wuji\DQN_SB_countVisitedstate' + str(i + 1)
           os.makedirs(path,exist_ok=True)
           writer1 = SummaryWriter(path)
           n_iter=0
@@ -288,6 +286,7 @@ if __name__ == '__main__':
               writer1.add_scalar('agent_tensor_average_reward/steps', reward_sum/n_iter, n_iter)
               writer1.add_scalar('agent_tensor_cum_reward/steps', reward_sum, n_iter)
               agent.observe(terminal=terminal, reward=reward)
+              print(numberOfbugs)
               if info['bug']:
                   if info['bug'] not in buglist:
                       numberOfbugs+=1
