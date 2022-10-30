@@ -186,7 +186,7 @@ def kr_learn(algo='dqn'):
 
             dqn = DQNAgent(model=model, nb_actions=nb_actions, policy=policy,
                        memory=memory,
-                       gamma=.99, batch_size=128)
+                       gamma=.99, batch_size=128, enable_double_dqn=False)
 
             dqn.compile(Adam(lr=.00025), metrics=['mae'])
             dqn.fit(env, nb_steps=10000,visualize=False,verbose=1)

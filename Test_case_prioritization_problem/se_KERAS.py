@@ -200,7 +200,7 @@ def experiment(mode, algo, test_case_data, start_cycle, end_cycle, episodes, mod
                     optimizer="adam",
                     metrics=["accuracy"])
                 policy = LinearAnnealedPolicy(EpsGreedyQPolicy(), attr='eps', value_max=1., value_test=.05,value_min=0.02, nb_steps=steps)
-                tp_agen = DQNAgent(model=model, nb_actions=nb_actions, memory=memory,batch_size=64,
+                tp_agen = DQNAgent(model=model, nb_actions=nb_actions, memory=memory,batch_size=32,
                                  enable_double_dqn=False, policy=policy)
 
             if algo.upper() == 'DDPG':

@@ -238,10 +238,10 @@ def sb_learn(algo='dqn'):
             model = DQN("MlpPolicy", env, learning_rate=0.00025,
                     policy_kwargs=policy_kwargs, gamma=0.99, verbose=1, batch_size=128,exploration_initial_eps=1)
         if algo == 'ppo':
-            model = PPO("MlpPolicy", env, learning_rate=0.00025, n_steps=128,
+            model = PPO("MlpPolicy", env, learning_rate=0.00025, batch_size=128,
                         policy_kwargs=policy_kwargs, gamma=0.99, verbose=1)
         if algo == 'a2c':
-            model = A2C("MlpPolicy", env, learning_rate=0.00025, n_steps=128, use_rms_prop=False,
+            model = A2C("MlpPolicy", env, learning_rate=0.00025, use_rms_prop=False,
                         policy_kwargs=policy_kwargs, gamma=0.99, rms_prop_eps=1e-08)
         model.learn(total_timesteps=10000,reset_num_timesteps=True)
 
