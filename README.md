@@ -1,5 +1,5 @@
 # A Comparison of Reinforcement Learning Frameworks for Software Testing Tasks
-This repository contains the training scripts, datasets, and experiments corresponding to our paper [(link available soon)](https://arxiv.org/abs/2208.12136)
+This repository contains the training scripts, datasets, and experiments corresponding to our paper [here is the link](https://arxiv.org/abs/2208.12136)
 
 ## Requirements
 
